@@ -1,5 +1,6 @@
 package dev.charles.gerador_etiquetas.view;
 
+import dev.charles.gerador_etiquetas.bo.EtiquetaBO;
 import dev.charles.gerador_etiquetas.controller.EtiquetaController;
 import dev.charles.gerador_etiquetas.model.Etiqueta;
 
@@ -12,7 +13,7 @@ import java.util.List;
 public class TelaDetalheEtiqueta extends JDialog {
 
     private Etiqueta etiqueta;
-    private EtiquetaController etiquetaController;
+    private EtiquetaBO etiquetaBO;
     private Runnable aoAtualizar;
 
     private JTextField txtId;
@@ -36,7 +37,7 @@ public class TelaDetalheEtiqueta extends JDialog {
 
         this.etiqueta = etiqueta;
         this.aoAtualizar = aoAtualizar;
-        this.etiquetaController = new EtiquetaController();
+        this.etiquetaBO = new EtiquetaBO();
 
         setSize(680, 570);
         setLocationRelativeTo(telaPai);
@@ -267,7 +268,7 @@ public class TelaDetalheEtiqueta extends JDialog {
             etiqueta.setLarguraCm(largura);
             etiqueta.setAlturaCm(altura);
 
-            etiquetaController.atualizarEtiqueta(etiqueta);
+            etiquetaBO.atualizarEtiqueta(etiqueta);
 
             JOptionPane.showMessageDialog(this, "Etiqueta atualizada com sucesso!");
 
@@ -293,7 +294,7 @@ public class TelaDetalheEtiqueta extends JDialog {
         );
 
         if (opcao == JOptionPane.YES_OPTION) {
-            etiquetaController.excluirEtiqueta(etiqueta.getId());
+            etiquetaBO.excluirEtiqueta(etiqueta.getId());
             JOptionPane.showMessageDialog(this, "Etiqueta excluída com sucesso!");
 
             if (aoAtualizar != null) {

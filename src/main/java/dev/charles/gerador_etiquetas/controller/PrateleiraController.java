@@ -1,31 +1,23 @@
 package dev.charles.gerador_etiquetas.controller;
 
-import dev.charles.gerador_etiquetas.dao.PrateleiraDAO;
+import dev.charles.gerador_etiquetas.bo.PrateleiraBO;
 import dev.charles.gerador_etiquetas.model.Prateleira;
 
 import java.util.List;
 
 public class PrateleiraController {
 
-    private PrateleiraDAO prateleiraDAO;
+    private PrateleiraBO prateleiraBO;
 
     public PrateleiraController() {
-        this.prateleiraDAO = new PrateleiraDAO();
+        this.prateleiraBO = new PrateleiraBO();
     }
 
     public Prateleira cadastrarPrateleira(String localPrateleira, String descricaoGrupo) {
-        if (localPrateleira == null || localPrateleira.isBlank()) {
-            throw new RuntimeException("O local da prateleira é obrigatório.");
-        }
-
-        Prateleira prateleira = new Prateleira();
-        prateleira.setLocalPrateleira(localPrateleira.trim());
-        prateleira.setDescricaoGrupo(descricaoGrupo);
-
-        return prateleiraDAO.salvar(prateleira);
+        return prateleiraBO.cadastrarPrateleira(localPrateleira, descricaoGrupo);
     }
 
     public List<Prateleira> listarPrateleiras() {
-        return prateleiraDAO.listar();
+        return prateleiraBO.listarPrateleiras();
     }
 }

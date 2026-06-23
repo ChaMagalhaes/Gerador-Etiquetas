@@ -1,6 +1,6 @@
 package dev.charles.gerador_etiquetas.view;
 
-import dev.charles.gerador_etiquetas.controller.EtiquetaController;
+import dev.charles.gerador_etiquetas.bo.EtiquetaBO;
 import dev.charles.gerador_etiquetas.model.Etiqueta;
 import dev.charles.gerador_etiquetas.model.Usuario;
 import dev.charles.gerador_etiquetas.patterns.strategy.EtiquetaCompletaHtmlStrategy;
@@ -16,7 +16,7 @@ import java.util.List;
 public class TelaPrincipal extends JFrame {
 
     private Usuario usuarioLogado;
-    private EtiquetaController etiquetaController;
+    private final EtiquetaBO etiquetaBO;
 
     private JComboBox<String> comboTipoBusca;
     private JTextField txtBusca;
@@ -32,7 +32,7 @@ public class TelaPrincipal extends JFrame {
 
     public TelaPrincipal(Usuario usuarioLogado) {
         this.usuarioLogado = usuarioLogado;
-        this.etiquetaController = new EtiquetaController();
+        this.etiquetaBO = new EtiquetaBO();
         this.etiquetasCadastradas = new ArrayList<>();
         this.etiquetasSelecionadas = new ArrayList<>();
 
@@ -209,7 +209,7 @@ public class TelaPrincipal extends JFrame {
 
     private void carregarEtiquetas() {
         try {
-            etiquetasCadastradas = etiquetaController.listarEtiquetas();
+            etiquetasCadastradas = etiquetaBO.listarEtiquetas();
             preencherTabela(etiquetasCadastradas);
         } catch (RuntimeException e) {
             mostrarErro("Erro ao carregar etiquetas: " + e.getMessage());
@@ -222,7 +222,7 @@ public class TelaPrincipal extends JFrame {
             String opcaoSelecionada = comboTipoBusca.getSelectedItem().toString();
             String tipoBusca = converterTipoBusca(opcaoSelecionada);
 
-            etiquetasCadastradas = etiquetaController.pesquisarEtiquetasPorTipo(tipoBusca, termo);
+            etiquetasCadastradas = etiquetaBO.pesquisarEtiquetasPorTipo(tipoBusca, termo);
             preencherTabela(etiquetasCadastradas);
         } catch (RuntimeException e) {
             mostrarErro("Erro ao pesquisar etiquetas: " + e.getMessage());
@@ -245,16 +245,12 @@ public class TelaPrincipal extends JFrame {
     }
 
     private String converterTipoBusca(String opcaoSelecionada) {
-        switch (opcaoSelecionada) {
-            case "Descrição":
-                return "DESCRICAO";
-            case "Código de venda":
-                return "CODIGO_VENDA";
-            case "Código original":
-                return "CODIGO_ORIGINAL";
-            default:
-                throw new RuntimeException("Opção de busca inválida.");
-        }
+        return switch (opcaoSelecionada) {
+            case "Descrição" -> "DESCRICAO";
+            case "Código de venda" -> "CODIGO_VENDA";
+            case "Código original" -> "CODIGO_ORIGINAL";
+            default -> throw new RuntimeException("Opção de busca inválida.");
+        };
     }
 
     private void abrirTelaNovaEtiqueta() {
@@ -288,7 +284,7 @@ public class TelaPrincipal extends JFrame {
         );
 
         if (opcao == JOptionPane.YES_OPTION) {
-            etiquetaController.excluirEtiqueta(etiqueta.getId());
+            etiquetaBO.excluirEtiqueta(etiqueta.getId());
             JOptionPane.showMessageDialog(this, "Etiqueta excluída com sucesso!");
             carregarEtiquetas();
         }
@@ -356,7 +352,7 @@ public class TelaPrincipal extends JFrame {
             return;
         }
 
-        String html = etiquetaController.gerarPaginaA4Html(etiquetasSelecionadas, new EtiquetaCompletaHtmlStrategy());
+        String html = etiquetaBO.gerarPaginaA4Html(etiquetasSelecionadas, new EtiquetaCompletaHtmlStrategy());
 
         GeradorArquivoHtml gerador = new GeradorArquivoHtml();
         gerador.salvar(html, "etiquetas.html");

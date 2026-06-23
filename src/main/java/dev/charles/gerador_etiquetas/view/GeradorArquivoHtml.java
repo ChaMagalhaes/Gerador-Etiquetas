@@ -16,7 +16,9 @@ public class GeradorArquivoHtml {
             }
 
             System.out.println("Arquivo HTML gerado com sucesso: " + arquivo.getAbsolutePath());
+
             abrirNoNavegador(arquivo);
+
         } catch (IOException e) {
             throw new RuntimeException("Erro ao gerar arquivo HTML.", e);
         }
@@ -26,11 +28,14 @@ public class GeradorArquivoHtml {
         try {
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(arquivo.toURI());
+                System.out.println("Arquivo aberto no navegador padrão.");
             } else {
                 System.out.println("Abertura automática no navegador não é suportada neste sistema.");
+                System.out.println("Abra manualmente o arquivo em: " + arquivo.getAbsolutePath());
             }
-        } catch (IOException e) {
-            throw new RuntimeException("Erro ao abrir HTML no navegador.", e);
+        } catch (Exception e) {
+            System.out.println("O arquivo HTML foi gerado, mas não foi possível abrir automaticamente no navegador.");
+            System.out.println("Abra manualmente o arquivo em: " + arquivo.getAbsolutePath());
         }
     }
 }
