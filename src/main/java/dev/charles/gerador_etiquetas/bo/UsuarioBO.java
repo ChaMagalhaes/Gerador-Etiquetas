@@ -7,10 +7,12 @@ import java.util.List;
 
 public class UsuarioBO {
 
-    private UsuarioDAO usuarioDAO;
+    private final UsuarioDAO usuarioDAO;
+    private final LogAcaoBO logAcaoBO;
 
     public UsuarioBO() {
         this.usuarioDAO = new UsuarioDAO();
+        this.logAcaoBO = new LogAcaoBO();
     }
 
     public Usuario autenticarUsuario(String email, String senha) {
@@ -39,9 +41,26 @@ public class UsuarioBO {
         usuario.setLogin(login);
         usuario.setSenha(senha);
         usuario.setEmail(email.trim());
-        usuario.setTelefone(telefone);
+        usuario.setTelefone(telefone != null ? telefone.trim() : null);
 
         usuarioDAO.salvar(usuario);
+
+        Usuario usuarioSalvo = usuarioDAO.buscarPorLogin(login);
+
+        Long usuarioCriadoId = usuarioSalvo != null
+                ? usuarioSalvo.getId()
+                : usuario.getId();
+
+        String loginUsuarioCriado = usuarioSalvo != null
+                ? usuarioSalvo.getLogin()
+                : usuario.getLogin();
+
+        logAcaoBO.registrar(
+                "CADASTRAR",
+                "USUARIO",
+                usuarioCriadoId,
+                "Cadastrou usuário: " + loginUsuarioCriado
+        );
     }
 
     public List<Usuario> listarUsuarios() {

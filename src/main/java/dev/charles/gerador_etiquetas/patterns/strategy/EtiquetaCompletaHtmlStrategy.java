@@ -2,6 +2,8 @@ package dev.charles.gerador_etiquetas.patterns.strategy;
 
 import dev.charles.gerador_etiquetas.model.Etiqueta;
 
+import dev.charles.gerador_etiquetas.model.EtiquetaCodigoOriginal;
+
 import java.util.List;
 import java.util.Locale;
 
@@ -60,17 +62,17 @@ public class EtiquetaCompletaHtmlStrategy implements EtiquetaHtmlStrategy {
         );
     }
 
-    private String gerarCodigosOriginaisHtml(List<String> codigosOriginais) {
+    private String gerarCodigosOriginaisHtml(List<EtiquetaCodigoOriginal> codigosOriginais) {
         if (codigosOriginais == null || codigosOriginais.isEmpty()) {
             return "<div class=\"codigo-original\">Sem código original</div>";
         }
 
         StringBuilder html = new StringBuilder();
 
-        for (String codigo : codigosOriginais) {
+        for (EtiquetaCodigoOriginal codigo : codigosOriginais) {
             html.append("""
                     <div class="codigo-original">%s</div>
-                    """.formatted(escaparHtml(codigo)));
+                    """.formatted(escaparHtml(codigo != null ? codigo.toString() : "")));
         }
 
         return html.toString();
@@ -94,7 +96,7 @@ public class EtiquetaCompletaHtmlStrategy implements EtiquetaHtmlStrategy {
         return limitar(fonte, 11, 26);
     }
 
-    private double calcularFonteCodigoOriginal(double larguraCm, double alturaCm, List<String> codigosOriginais) {
+    private double calcularFonteCodigoOriginal(double larguraCm, double alturaCm, List<EtiquetaCodigoOriginal> codigosOriginais) {
         double menorMedida = Math.min(larguraCm, alturaCm);
         double fonte = menorMedida * 2.8;
 

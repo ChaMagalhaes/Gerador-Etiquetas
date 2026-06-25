@@ -34,11 +34,45 @@ public class PrateleiraDAO {
         }
     }
 
+    public void atualizar(Prateleira prateleira) {
+        String sql = """
+                UPDATE prateleira
+                SET local_prateleira = ?, descricao_grupo = ?
+                WHERE id = ?
+                """;
+
+        try {
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
+            stmt.setString(1, prateleira.getLocalPrateleira());
+            stmt.setString(2, prateleira.getDescricaoGrupo());
+            stmt.setLong(3, prateleira.getId());
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao atualizar prateleira.", e);
+        }
+    }
+
+    public void excluir(Long id) {
+        String sql = "DELETE FROM prateleira WHERE id = ?";
+
+        try {
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
+            stmt.setLong(1, id);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao excluir prateleira. Verifique se ela está sendo usada em alguma etiqueta.", e);
+        }
+    }
+
     public List<Prateleira> listar() {
         String sql = """
                 SELECT id, local_prateleira, descricao_grupo
                 FROM prateleira
-                ORDER BY id
+                ORDER BY local_prateleira
                 """;
 
         List<Prateleira> prateleiras = new ArrayList<>();
@@ -49,16 +83,44 @@ public class PrateleiraDAO {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                Prateleira prateleira = new Prateleira();
-                prateleira.setId(rs.getLong("id"));
-                prateleira.setLocalPrateleira(rs.getString("local_prateleira"));
-                prateleira.setDescricaoGrupo(rs.getString("descricao_grupo"));
-                prateleiras.add(prateleira);
+                prateleiras.add(montarPrateleira(rs));
             }
 
             return prateleiras;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao listar prateleiras.", e);
         }
+    }
+
+    public Prateleira buscarPorId(Long id) {
+        String sql = """
+                SELECT id, local_prateleira, descricao_grupo
+                FROM prateleira
+                WHERE id = ?
+                """;
+
+        try {
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
+            stmt.setLong(1, id);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return montarPrateleira(rs);
+            }
+
+            return null;
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar prateleira.", e);
+        }
+    }
+
+    private Prateleira montarPrateleira(ResultSet rs) throws SQLException {
+        Prateleira prateleira = new Prateleira();
+        prateleira.setId(rs.getLong("id"));
+        prateleira.setLocalPrateleira(rs.getString("local_prateleira"));
+        prateleira.setDescricaoGrupo(rs.getString("descricao_grupo"));
+        return prateleira;
     }
 }

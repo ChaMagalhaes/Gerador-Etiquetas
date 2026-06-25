@@ -1,207 +1,283 @@
 package dev.charles.gerador_etiquetas.dao;
 
 import dev.charles.gerador_etiquetas.model.Etiqueta;
+import dev.charles.gerador_etiquetas.model.Grupo;
 import dev.charles.gerador_etiquetas.model.Prateleira;
+import dev.charles.gerador_etiquetas.model.SubGrupo;
 import dev.charles.gerador_etiquetas.util.Conexao;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EtiquetaDAO {
 
-    public void salvar(Etiqueta etiqueta) {
-        String sqlEtiqueta = """
-                INSERT INTO etiqueta (
-                    prateleira_id,
-                    descricao,
-                    codigo_venda,
-                    data_criacao,
-                    largura_cm,
-                    altura_cm
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-                """;
+    private final EtiquetaCodigoOriginalDAO codigoOriginalDAO;
 
-        String sqlCodigoOriginal = """
-                INSERT INTO etiqueta_codigo_original (etiqueta_id, codigo_original)
-                VALUES (?, ?)
-                """;
+    public EtiquetaDAO() {
+        this.codigoOriginalDAO = new EtiquetaCodigoOriginalDAO();
+    }
 
-        Connection conn = Conexao.getInstance().getConnection();
+    public Etiqueta salvar(Etiqueta etiqueta) {
+        String sql = """
+                INSERT INTO etiqueta
+                (prateleira_id, grupo_id, subgrupo_id, descricao, codigo_venda, data_criacao, largura_cm, altura_cm)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """;
 
         try {
-            conn.setAutoCommit(false);
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
-            PreparedStatement stmtEtiqueta = conn.prepareStatement(sqlEtiqueta, Statement.RETURN_GENERATED_KEYS);
-            stmtEtiqueta.setLong(1, etiqueta.getPrateleira().getId());
-            stmtEtiqueta.setString(2, etiqueta.getDescricao());
-            stmtEtiqueta.setString(3, etiqueta.getCodigoVenda());
-            stmtEtiqueta.setTimestamp(4, Timestamp.valueOf(etiqueta.getDataCriacao()));
-            stmtEtiqueta.setDouble(5, etiqueta.getLarguraCm());
-            stmtEtiqueta.setDouble(6, etiqueta.getAlturaCm());
-            stmtEtiqueta.executeUpdate();
+            preencherIdsRelacionamentos(stmt, etiqueta);
 
-            ResultSet rs = stmtEtiqueta.getGeneratedKeys();
+            stmt.setString(4, etiqueta.getDescricao());
+            stmt.setString(5, etiqueta.getCodigoVenda());
+
+            LocalDateTime dataCriacao = etiqueta.getDataCriacao() != null
+                    ? etiqueta.getDataCriacao()
+                    : LocalDateTime.now();
+
+            stmt.setTimestamp(6, Timestamp.valueOf(dataCriacao));
+            stmt.setDouble(7, etiqueta.getLarguraCm());
+            stmt.setDouble(8, etiqueta.getAlturaCm());
+
+            stmt.executeUpdate();
+
+            ResultSet rs = stmt.getGeneratedKeys();
 
             if (rs.next()) {
-                Long etiquetaId = rs.getLong(1);
-                etiqueta.setId(etiquetaId);
-                salvarCodigosOriginais(conn, etiquetaId, etiqueta.getCodigosOriginais(), sqlCodigoOriginal);
+                etiqueta.setId(rs.getLong(1));
             }
 
-            conn.commit();
+            codigoOriginalDAO.salvarTodosPorEtiqueta(
+                    etiqueta.getId(),
+                    etiqueta.getCodigosOriginais()
+            );
+
+            return etiqueta;
+
         } catch (SQLException e) {
-            rollback(conn);
-            throw new RuntimeException("Erro ao salvar etiqueta.", e);
-        } finally {
-            restaurarAutoCommit(conn);
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao salvar etiqueta: " + e.getMessage(), e);
         }
     }
 
     public void atualizar(Etiqueta etiqueta) {
-        String sqlPrateleira = """
-                UPDATE prateleira
-                SET local_prateleira = ?, descricao_grupo = ?
-                WHERE id = ?
-                """;
-
-        String sqlEtiqueta = """
-                UPDATE etiqueta
-                SET descricao = ?, codigo_venda = ?, largura_cm = ?, altura_cm = ?
-                WHERE id = ?
-                """;
-
-        String sqlExcluirCodigos = """
-                DELETE FROM etiqueta_codigo_original
-                WHERE etiqueta_id = ?
-                """;
-
-        String sqlInserirCodigo = """
-                INSERT INTO etiqueta_codigo_original (etiqueta_id, codigo_original)
-                VALUES (?, ?)
-                """;
-
-        Connection conn = Conexao.getInstance().getConnection();
-
-        try {
-            conn.setAutoCommit(false);
-
-            PreparedStatement stmtPrateleira = conn.prepareStatement(sqlPrateleira);
-            stmtPrateleira.setString(1, etiqueta.getPrateleira().getLocalPrateleira());
-            stmtPrateleira.setString(2, etiqueta.getPrateleira().getDescricaoGrupo());
-            stmtPrateleira.setLong(3, etiqueta.getPrateleira().getId());
-            stmtPrateleira.executeUpdate();
-
-            PreparedStatement stmtEtiqueta = conn.prepareStatement(sqlEtiqueta);
-            stmtEtiqueta.setString(1, etiqueta.getDescricao());
-            stmtEtiqueta.setString(2, etiqueta.getCodigoVenda());
-            stmtEtiqueta.setDouble(3, etiqueta.getLarguraCm());
-            stmtEtiqueta.setDouble(4, etiqueta.getAlturaCm());
-            stmtEtiqueta.setLong(5, etiqueta.getId());
-            stmtEtiqueta.executeUpdate();
-
-            PreparedStatement stmtExcluirCodigos = conn.prepareStatement(sqlExcluirCodigos);
-            stmtExcluirCodigos.setLong(1, etiqueta.getId());
-            stmtExcluirCodigos.executeUpdate();
-
-            salvarCodigosOriginais(conn, etiqueta.getId(), etiqueta.getCodigosOriginais(), sqlInserirCodigo);
-
-            conn.commit();
-        } catch (SQLException e) {
-            rollback(conn);
-            throw new RuntimeException("Erro ao atualizar etiqueta.", e);
-        } finally {
-            restaurarAutoCommit(conn);
-        }
-    }
-
-    public void excluir(Long id) {
         String sql = """
-                DELETE FROM etiqueta
+                UPDATE etiqueta
+                SET prateleira_id = ?, 
+                    grupo_id = ?, 
+                    subgrupo_id = ?, 
+                    descricao = ?, 
+                    codigo_venda = ?, 
+                    largura_cm = ?, 
+                    altura_cm = ?
                 WHERE id = ?
                 """;
 
         try {
             Connection conn = Conexao.getInstance().getConnection();
             PreparedStatement stmt = conn.prepareStatement(sql);
+
+            preencherIdsRelacionamentos(stmt, etiqueta);
+
+            stmt.setString(4, etiqueta.getDescricao());
+            stmt.setString(5, etiqueta.getCodigoVenda());
+            stmt.setDouble(6, etiqueta.getLarguraCm());
+            stmt.setDouble(7, etiqueta.getAlturaCm());
+            stmt.setLong(8, etiqueta.getId());
+
+            stmt.executeUpdate();
+
+            codigoOriginalDAO.excluirPorEtiqueta(etiqueta.getId());
+
+            codigoOriginalDAO.salvarTodosPorEtiqueta(
+                    etiqueta.getId(),
+                    etiqueta.getCodigosOriginais()
+            );
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao atualizar etiqueta: " + e.getMessage(), e);
+        }
+    }
+
+    private void preencherIdsRelacionamentos(PreparedStatement stmt, Etiqueta etiqueta) throws SQLException {
+        if (etiqueta.getPrateleira() != null && etiqueta.getPrateleira().getId() != null) {
+            stmt.setLong(1, etiqueta.getPrateleira().getId());
+        } else {
+            stmt.setNull(1, Types.BIGINT);
+        }
+
+        if (etiqueta.getGrupo() != null && etiqueta.getGrupo().getId() != null) {
+            stmt.setLong(2, etiqueta.getGrupo().getId());
+        } else {
+            stmt.setNull(2, Types.BIGINT);
+        }
+
+        if (etiqueta.getSubGrupo() != null && etiqueta.getSubGrupo().getId() != null) {
+            stmt.setLong(3, etiqueta.getSubGrupo().getId());
+        } else {
+            stmt.setNull(3, Types.BIGINT);
+        }
+    }
+
+    public void excluir(Long id) {
+        String sql = "DELETE FROM etiqueta WHERE id = ?";
+
+        try {
+            codigoOriginalDAO.excluirPorEtiqueta(id);
+
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
             stmt.setLong(1, id);
             stmt.executeUpdate();
+
         } catch (SQLException e) {
-            throw new RuntimeException("Erro ao excluir etiqueta.", e);
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao excluir etiqueta: " + e.getMessage(), e);
         }
     }
 
     public List<Etiqueta> listar() {
-        String sql = sqlBase() + " ORDER BY e.id";
-        return executarConsultaLista(sql, null);
+        String sql = consultaBase() + """
+            ORDER BY e.id ASC
+            """;
+
+        return executarConsultaSemParametro(sql);
     }
 
     public Etiqueta buscarPorId(Long id) {
-        String sql = sqlBase() + " WHERE e.id = ?";
-        List<Etiqueta> etiquetas = executarConsultaLista(sql, id);
-        return etiquetas.isEmpty() ? null : etiquetas.get(0);
+        String sql = consultaBase() + """
+                WHERE e.id = ?
+                """;
+
+        List<Etiqueta> resultado = executarConsultaLong(sql, id);
+
+        return resultado.isEmpty() ? null : resultado.get(0);
+    }
+
+    public List<Etiqueta> buscarPorDescricao(String descricao) {
+        String sql = consultaBase() + """
+                WHERE LOWER(e.descricao) LIKE LOWER(?)
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaTexto(sql, "%" + descricao + "%");
+    }
+
+    public List<Etiqueta> buscarPorCodigoVenda(String codigoVenda) {
+        String sql = consultaBase() + """
+                WHERE LOWER(e.codigo_venda) LIKE LOWER(?)
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaTexto(sql, "%" + codigoVenda + "%");
+    }
+
+    public List<Etiqueta> buscarPorCodigoOriginal(String codigoOriginal) {
+        String sql = consultaBase() + """
+                INNER JOIN etiqueta_codigo_original eco ON eco.etiqueta_id = e.id
+                WHERE LOWER(eco.codigo_original) LIKE LOWER(?)
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaTexto(sql, "%" + codigoOriginal + "%");
+    }
+
+    public List<Etiqueta> buscarPorFabricante(String fabricante) {
+        String sql = consultaBase() + """
+                INNER JOIN etiqueta_codigo_original eco ON eco.etiqueta_id = e.id
+                INNER JOIN fabricante f ON eco.fabricante_id = f.id
+                WHERE LOWER(f.nome) LIKE LOWER(?)
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaTexto(sql, "%" + fabricante + "%");
+    }
+
+    public List<Etiqueta> buscarPorGrupo(Long grupoId) {
+        String sql = consultaBase() + """
+                WHERE e.grupo_id = ?
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaLong(sql, grupoId);
+    }
+
+    public List<Etiqueta> buscarPorSubGrupo(Long subgrupoId) {
+        String sql = consultaBase() + """
+                WHERE e.subgrupo_id = ?
+                ORDER BY e.descricao
+                """;
+
+        return executarConsultaLong(sql, subgrupoId);
     }
 
     public List<Etiqueta> pesquisarPorTipo(String tipoBusca, String termo) {
-        String sql;
-
-        switch (tipoBusca) {
-            case "DESCRICAO":
-                sql = sqlBase() + " WHERE LOWER(e.descricao) LIKE LOWER(?) ORDER BY e.id";
-                break;
-            case "CODIGO_VENDA":
-                sql = sqlBase() + " WHERE LOWER(e.codigo_venda) LIKE LOWER(?) ORDER BY e.id";
-                break;
-            case "CODIGO_ORIGINAL":
-                sql = sqlBase() + """
-                         WHERE EXISTS (
-                            SELECT 1
-                            FROM etiqueta_codigo_original eco
-                            WHERE eco.etiqueta_id = e.id
-                            AND LOWER(eco.codigo_original) LIKE LOWER(?)
-                         )
-                         ORDER BY e.id
-                        """;
-                break;
-            default:
-                throw new RuntimeException("Tipo de busca inválido.");
+        if (tipoBusca == null || tipoBusca.isBlank()) {
+            throw new RuntimeException("Tipo de busca obrigatório.");
         }
 
-        return executarConsultaLista(sql, "%" + termo + "%");
+        if (termo == null || termo.isBlank()) {
+            return listar();
+        }
+
+        String tipo = tipoBusca.trim().toLowerCase();
+        String termoTratado = termo.trim();
+
+        return switch (tipo) {
+            case "descricao", "descrição", "produto" -> buscarPorDescricao(termoTratado);
+
+            case "codigo_venda", "codigo venda", "código venda", "codigo de venda", "código de venda", "venda" ->
+                    buscarPorCodigoVenda(termoTratado);
+
+            case "codigo_original", "codigo original", "código original", "original" ->
+                    buscarPorCodigoOriginal(termoTratado);
+
+            case "fabricante", "marca" ->
+                    buscarPorFabricante(termoTratado);
+
+            default -> throw new RuntimeException("Tipo de busca inválido: " + tipoBusca);
+        };
     }
 
-    private String sqlBase() {
+    private String consultaBase() {
         return """
-                SELECT 
-                    e.id AS etiqueta_id,
+                SELECT DISTINCT
+                    e.id,
+                    e.prateleira_id,
+                    e.grupo_id,
+                    e.subgrupo_id,
                     e.descricao,
                     e.codigo_venda,
                     e.data_criacao,
                     e.largura_cm,
                     e.altura_cm,
-                    p.id AS prateleira_id,
-                    p.local_prateleira,
-                    p.descricao_grupo
+
+                    p.local_prateleira AS prateleira_local,
+                    p.descricao_grupo AS prateleira_descricao_grupo,
+
+                    g.descricao AS grupo_descricao,
+
+                    sg.descricao AS subgrupo_descricao
+
                 FROM etiqueta e
-                INNER JOIN prateleira p ON e.prateleira_id = p.id
+                LEFT JOIN prateleira p ON e.prateleira_id = p.id
+                LEFT JOIN grupo g ON e.grupo_id = g.id
+                LEFT JOIN subgrupo sg ON e.subgrupo_id = sg.id
                 """;
     }
 
-    private List<Etiqueta> executarConsultaLista(String sql, Object parametro) {
+    private List<Etiqueta> executarConsultaSemParametro(String sql) {
         List<Etiqueta> etiquetas = new ArrayList<>();
 
         try {
             Connection conn = Conexao.getInstance().getConnection();
             PreparedStatement stmt = conn.prepareStatement(sql);
-
-            if (parametro != null) {
-                if (parametro instanceof Long) {
-                    stmt.setLong(1, (Long) parametro);
-                } else {
-                    stmt.setString(1, parametro.toString());
-                }
-            }
 
             ResultSet rs = stmt.executeQuery();
 
@@ -210,87 +286,119 @@ public class EtiquetaDAO {
             }
 
             return etiquetas;
+
         } catch (SQLException e) {
-            throw new RuntimeException("Erro ao consultar etiquetas.", e);
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao consultar etiquetas: " + e.getMessage(), e);
         }
     }
 
-    private Etiqueta montarEtiqueta(ResultSet rs) throws SQLException {
-        Prateleira prateleira = new Prateleira();
-        prateleira.setId(rs.getLong("prateleira_id"));
-        prateleira.setLocalPrateleira(rs.getString("local_prateleira"));
-        prateleira.setDescricaoGrupo(rs.getString("descricao_grupo"));
-
-        Etiqueta etiqueta = new Etiqueta();
-        etiqueta.setId(rs.getLong("etiqueta_id"));
-        etiqueta.setDescricao(rs.getString("descricao"));
-        etiqueta.setCodigoVenda(rs.getString("codigo_venda"));
-        etiqueta.setDataCriacao(rs.getTimestamp("data_criacao").toLocalDateTime());
-        etiqueta.setLarguraCm(rs.getDouble("largura_cm"));
-        etiqueta.setAlturaCm(rs.getDouble("altura_cm"));
-        etiqueta.setPrateleira(prateleira);
-        etiqueta.setCodigosOriginais(buscarCodigosOriginais(etiqueta.getId()));
-
-        return etiqueta;
-    }
-
-    private List<String> buscarCodigosOriginais(Long etiquetaId) {
-        String sql = """
-                SELECT codigo_original
-                FROM etiqueta_codigo_original
-                WHERE etiqueta_id = ?
-                ORDER BY id
-                """;
-
-        List<String> codigos = new ArrayList<>();
+    private List<Etiqueta> executarConsultaLong(String sql, Long parametro) {
+        List<Etiqueta> etiquetas = new ArrayList<>();
 
         try {
             Connection conn = Conexao.getInstance().getConnection();
             PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setLong(1, etiquetaId);
+
+            stmt.setLong(1, parametro);
+
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                codigos.add(rs.getString("codigo_original"));
+                etiquetas.add(montarEtiqueta(rs));
             }
 
-            return codigos;
+            return etiquetas;
+
         } catch (SQLException e) {
-            throw new RuntimeException("Erro ao buscar códigos originais da etiqueta.", e);
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao consultar etiquetas: " + e.getMessage(), e);
         }
     }
 
-    private void salvarCodigosOriginais(Connection conn, Long etiquetaId, List<String> codigosOriginais, String sql) throws SQLException {
-        if (codigosOriginais == null || codigosOriginais.isEmpty()) {
-            return;
-        }
+    private List<Etiqueta> executarConsultaTexto(String sql, String parametro) {
+        List<Etiqueta> etiquetas = new ArrayList<>();
 
-        PreparedStatement stmtCodigo = conn.prepareStatement(sql);
+        try {
+            Connection conn = Conexao.getInstance().getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
 
-        for (String codigoOriginal : codigosOriginais) {
-            if (codigoOriginal != null && !codigoOriginal.isBlank()) {
-                stmtCodigo.setLong(1, etiquetaId);
-                stmtCodigo.setString(2, codigoOriginal.trim());
-                stmtCodigo.addBatch();
+            stmt.setString(1, parametro);
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                etiquetas.add(montarEtiqueta(rs));
             }
-        }
 
-        stmtCodigo.executeBatch();
-    }
+            return etiquetas;
 
-    private void rollback(Connection conn) {
-        try {
-            conn.rollback();
         } catch (SQLException e) {
-            throw new RuntimeException("Erro ao desfazer operação.", e);
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao consultar etiquetas: " + e.getMessage(), e);
         }
     }
 
-    private void restaurarAutoCommit(Connection conn) {
-        try {
-            conn.setAutoCommit(true);
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao restaurar autoCommit.", e);
+    private Etiqueta montarEtiqueta(ResultSet rs) throws SQLException {
+        Etiqueta etiqueta = new Etiqueta();
+
+        etiqueta.setId(rs.getLong("id"));
+        etiqueta.setDescricao(rs.getString("descricao"));
+        etiqueta.setCodigoVenda(rs.getString("codigo_venda"));
+
+        Long prateleiraId = getLongOuNull(rs, "prateleira_id");
+
+        if (prateleiraId != null) {
+            Prateleira prateleira = new Prateleira();
+
+            prateleira.setId(prateleiraId);
+            prateleira.setLocalPrateleira(rs.getString("prateleira_local"));
+            prateleira.setDescricaoGrupo(rs.getString("prateleira_descricao_grupo"));
+
+            etiqueta.setPrateleira(prateleira);
         }
+
+        Long grupoId = getLongOuNull(rs, "grupo_id");
+
+        if (grupoId != null) {
+            Grupo grupo = new Grupo();
+
+            grupo.setId(grupoId);
+            grupo.setDescricao(rs.getString("grupo_descricao"));
+
+            etiqueta.setGrupo(grupo);
+        }
+
+        Long subgrupoId = getLongOuNull(rs, "subgrupo_id");
+
+        if (subgrupoId != null) {
+            SubGrupo subGrupo = new SubGrupo();
+
+            subGrupo.setId(subgrupoId);
+            subGrupo.setDescricao(rs.getString("subgrupo_descricao"));
+            subGrupo.setGrupo(etiqueta.getGrupo());
+
+            etiqueta.setSubGrupo(subGrupo);
+        }
+
+        Timestamp dataCriacao = rs.getTimestamp("data_criacao");
+
+        if (dataCriacao != null) {
+            etiqueta.setDataCriacao(dataCriacao.toLocalDateTime());
+        }
+
+        etiqueta.setLarguraCm(rs.getDouble("largura_cm"));
+        etiqueta.setAlturaCm(rs.getDouble("altura_cm"));
+
+        etiqueta.setCodigosOriginais(
+                codigoOriginalDAO.listarPorEtiqueta(etiqueta.getId())
+        );
+
+        return etiqueta;
+    }
+
+    private Long getLongOuNull(ResultSet rs, String coluna) throws SQLException {
+        Number valor = (Number) rs.getObject(coluna);
+        return valor != null ? valor.longValue() : null;
     }
 }

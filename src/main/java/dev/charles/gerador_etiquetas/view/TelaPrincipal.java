@@ -2,10 +2,12 @@ package dev.charles.gerador_etiquetas.view;
 
 import dev.charles.gerador_etiquetas.bo.EtiquetaBO;
 import dev.charles.gerador_etiquetas.model.Etiqueta;
+import dev.charles.gerador_etiquetas.model.EtiquetaCodigoOriginal;
 import dev.charles.gerador_etiquetas.model.Usuario;
 import dev.charles.gerador_etiquetas.patterns.strategy.EtiquetaCompletaHtmlStrategy;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -15,7 +17,7 @@ import java.util.List;
 
 public class TelaPrincipal extends JFrame {
 
-    private Usuario usuarioLogado;
+    private final Usuario usuarioLogado;
     private final EtiquetaBO etiquetaBO;
 
     private JComboBox<String> comboTipoBusca;
@@ -28,7 +30,7 @@ public class TelaPrincipal extends JFrame {
     private JList<Etiqueta> listaImpressao;
 
     private List<Etiqueta> etiquetasCadastradas;
-    private List<Etiqueta> etiquetasSelecionadas;
+    private final List<Etiqueta> etiquetasSelecionadas;
 
     public TelaPrincipal(Usuario usuarioLogado) {
         this.usuarioLogado = usuarioLogado;
@@ -37,7 +39,7 @@ public class TelaPrincipal extends JFrame {
         this.etiquetasSelecionadas = new ArrayList<>();
 
         setTitle("Gerador de Etiquetas - Usuário: " + usuarioLogado.getNome());
-        setSize(1150, 720);
+        setSize(1280, 760);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -46,10 +48,46 @@ public class TelaPrincipal extends JFrame {
     }
 
     private void criarComponentes() {
+        setJMenuBar(criarMenu());
+
         JTabbedPane abas = new JTabbedPane();
         abas.addTab("Etiquetas cadastradas", criarPainelEtiquetasCadastradas());
         abas.addTab("Etiquetas para impressão", criarPainelEtiquetasParaImpressao());
+
         add(abas, BorderLayout.CENTER);
+    }
+
+    private JMenuBar criarMenu() {
+        JMenuBar menuBar = new JMenuBar();
+
+        JMenu menuCadastros = new JMenu("Cadastros");
+
+        JMenuItem itemGrupos = new JMenuItem("Grupos e subgrupos");
+        JMenuItem itemFabricantes = new JMenuItem("Fabricantes");
+        JMenuItem itemUsuarios = new JMenuItem("Usuários");
+        JMenuItem itemPrateleiras = new JMenuItem("Prateleiras");
+
+        itemGrupos.addActionListener(e -> new TelaCadastroGrupoSubGrupo(this).setVisible(true));
+        itemFabricantes.addActionListener(e -> new TelaCadastroFabricante(this).setVisible(true));
+        itemUsuarios.addActionListener(e -> new TelaCadastroUsuario(this).setVisible(true));
+        itemPrateleiras.addActionListener(e -> new TelaCadastroPrateleira(this).setVisible(true));
+
+        menuCadastros.add(itemGrupos);
+        menuCadastros.add(itemFabricantes);
+        menuCadastros.add(itemUsuarios);
+        menuCadastros.add(itemPrateleiras);
+
+        JMenu menuSistema = new JMenu("Sistema");
+
+        JMenuItem itemLogs = new JMenuItem("Consultar logs");
+        itemLogs.addActionListener(e -> new TelaConsultaLogs(this).setVisible(true));
+
+        menuSistema.add(itemLogs);
+
+        menuBar.add(menuCadastros);
+        menuBar.add(menuSistema);
+
+        return menuBar;
     }
 
     private JPanel criarPainelEtiquetasCadastradas() {
@@ -59,8 +97,11 @@ public class TelaPrincipal extends JFrame {
         String[] colunas = {
                 "ID",
                 "Descrição",
+                "Grupo",
+                "Subgrupo",
                 "Prateleira",
                 "Código venda",
+                "Fabricante",
                 "Códigos originais",
                 "Tamanho"
         };
@@ -70,11 +111,25 @@ public class TelaPrincipal extends JFrame {
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
+
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                return switch (columnIndex) {
+                    case 0 -> Long.class;
+                    default -> String.class;
+                };
+            }
         };
 
         tabelaEtiquetas = new JTable(modeloTabela);
         tabelaEtiquetas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tabelaEtiquetas.setRowHeight(25);
+        tabelaEtiquetas.setAutoCreateRowSorter(true);
+
+        // Correção: deixa os valores da coluna ID alinhados à esquerda
+        DefaultTableCellRenderer rendererId = new DefaultTableCellRenderer();
+        rendererId.setHorizontalAlignment(SwingConstants.LEFT);
+        tabelaEtiquetas.getColumnModel().getColumn(0).setCellRenderer(rendererId);
 
         tabelaEtiquetas.addMouseListener(new MouseAdapter() {
             @Override
@@ -95,6 +150,7 @@ public class TelaPrincipal extends JFrame {
         comboTipoBusca.addItem("Descrição");
         comboTipoBusca.addItem("Código de venda");
         comboTipoBusca.addItem("Código original");
+        comboTipoBusca.addItem("Fabricante");
 
         txtBusca = new JTextField(30);
 
@@ -153,9 +209,10 @@ public class TelaPrincipal extends JFrame {
 
         listaImpressao.setCellRenderer((list, etiqueta, index, isSelected, cellHasFocus) -> {
             JLabel label = new JLabel();
+
             String texto = etiqueta.getDescricao()
                     + " | "
-                    + etiqueta.getPrateleira().getLocalPrateleira()
+                    + obterLocalPrateleira(etiqueta)
                     + " | "
                     + etiqueta.getCodigoVenda();
 
@@ -223,7 +280,9 @@ public class TelaPrincipal extends JFrame {
             String tipoBusca = converterTipoBusca(opcaoSelecionada);
 
             etiquetasCadastradas = etiquetaBO.pesquisarEtiquetasPorTipo(tipoBusca, termo);
+
             preencherTabela(etiquetasCadastradas);
+
         } catch (RuntimeException e) {
             mostrarErro("Erro ao pesquisar etiquetas: " + e.getMessage());
         }
@@ -236,8 +295,11 @@ public class TelaPrincipal extends JFrame {
             modeloTabela.addRow(new Object[]{
                     etiqueta.getId(),
                     etiqueta.getDescricao(),
-                    etiqueta.getPrateleira().getLocalPrateleira(),
+                    etiqueta.getGrupo() != null ? etiqueta.getGrupo().getDescricao() : "",
+                    etiqueta.getSubGrupo() != null ? etiqueta.getSubGrupo().getDescricao() : "",
+                    obterLocalPrateleira(etiqueta),
                     etiqueta.getCodigoVenda(),
+                    formatarFabricantes(etiqueta),
                     formatarCodigosOriginais(etiqueta),
                     etiqueta.getLarguraCm() + " x " + etiqueta.getAlturaCm() + " cm"
             });
@@ -249,6 +311,7 @@ public class TelaPrincipal extends JFrame {
             case "Descrição" -> "DESCRICAO";
             case "Código de venda" -> "CODIGO_VENDA";
             case "Código original" -> "CODIGO_ORIGINAL";
+            case "Fabricante" -> "FABRICANTE";
             default -> throw new RuntimeException("Opção de busca inválida.");
         };
     }
@@ -294,11 +357,17 @@ public class TelaPrincipal extends JFrame {
         int linhaSelecionada = tabelaEtiquetas.getSelectedRow();
 
         if (linhaSelecionada == -1) {
-            JOptionPane.showMessageDialog(this, "Selecione uma etiqueta.", "Atenção", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Selecione uma etiqueta.",
+                    "Atenção",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return null;
         }
 
         int linhaModelo = tabelaEtiquetas.convertRowIndexToModel(linhaSelecionada);
+
         return etiquetasCadastradas.get(linhaModelo);
     }
 
@@ -310,12 +379,18 @@ public class TelaPrincipal extends JFrame {
         }
 
         if (jaFoiSelecionada(etiqueta)) {
-            JOptionPane.showMessageDialog(this, "Essa etiqueta já está na lista de impressão.", "Atenção", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Essa etiqueta já está na lista de impressão.",
+                    "Atenção",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return;
         }
 
         etiquetasSelecionadas.add(etiqueta);
         modeloListaImpressao.addElement(etiqueta);
+
         JOptionPane.showMessageDialog(this, "Etiqueta adicionada à impressão.");
     }
 
@@ -333,7 +408,12 @@ public class TelaPrincipal extends JFrame {
         int index = listaImpressao.getSelectedIndex();
 
         if (index == -1) {
-            JOptionPane.showMessageDialog(this, "Selecione uma etiqueta para remover.", "Atenção", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Selecione uma etiqueta para remover.",
+                    "Atenção",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return;
         }
 
@@ -348,11 +428,19 @@ public class TelaPrincipal extends JFrame {
 
     private void imprimirEtiquetasSelecionadas() {
         if (etiquetasSelecionadas.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Adicione pelo menos uma etiqueta na lista de impressão.", "Atenção", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Adicione pelo menos uma etiqueta na lista de impressão.",
+                    "Atenção",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return;
         }
 
-        String html = etiquetaBO.gerarPaginaA4Html(etiquetasSelecionadas, new EtiquetaCompletaHtmlStrategy());
+        String html = etiquetaBO.gerarPaginaA4Html(
+                etiquetasSelecionadas,
+                new EtiquetaCompletaHtmlStrategy()
+        );
 
         GeradorArquivoHtml gerador = new GeradorArquivoHtml();
         gerador.salvar(html, "etiquetas.html");
@@ -360,12 +448,56 @@ public class TelaPrincipal extends JFrame {
         JOptionPane.showMessageDialog(this, "Arquivo HTML gerado com sucesso!");
     }
 
+    private String obterLocalPrateleira(Etiqueta etiqueta) {
+        if (etiqueta.getPrateleira() == null || etiqueta.getPrateleira().getLocalPrateleira() == null) {
+            return "";
+        }
+
+        return etiqueta.getPrateleira().getLocalPrateleira();
+    }
+
     private String formatarCodigosOriginais(Etiqueta etiqueta) {
         if (etiqueta.getCodigosOriginais() == null || etiqueta.getCodigosOriginais().isEmpty()) {
             return "";
         }
 
-        return String.join(" / ", etiqueta.getCodigosOriginais());
+        StringBuilder builder = new StringBuilder();
+
+        for (EtiquetaCodigoOriginal codigo : etiqueta.getCodigosOriginais()) {
+            if (codigo != null && codigo.getCodigoOriginal() != null) {
+                if (!builder.isEmpty()) {
+                    builder.append(" / ");
+                }
+
+                builder.append(codigo.getCodigoOriginal());
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private String formatarFabricantes(Etiqueta etiqueta) {
+        if (etiqueta.getCodigosOriginais() == null || etiqueta.getCodigosOriginais().isEmpty()) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+
+        for (EtiquetaCodigoOriginal codigo : etiqueta.getCodigosOriginais()) {
+            if (codigo != null && codigo.getFabricante() != null && codigo.getFabricante().getNome() != null) {
+                String nome = codigo.getFabricante().getNome();
+
+                if (!builder.toString().contains(nome)) {
+                    if (!builder.isEmpty()) {
+                        builder.append(" / ");
+                    }
+
+                    builder.append(nome);
+                }
+            }
+        }
+
+        return builder.toString();
     }
 
     private void mostrarErro(String mensagem) {

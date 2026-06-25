@@ -1,7 +1,9 @@
 package dev.charles.gerador_etiquetas.view;
 
+import dev.charles.gerador_etiquetas.bo.LogAcaoBO;
 import dev.charles.gerador_etiquetas.controller.UsuarioController;
 import dev.charles.gerador_etiquetas.model.Usuario;
+import dev.charles.gerador_etiquetas.util.SessaoUsuario;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,8 +35,8 @@ public class TelaLogin extends JFrame {
 
         JPanel painelCampos = new JPanel(new GridLayout(4, 1, 5, 5));
 
-        txtEmail = new JTextField("charles@email.com");
-        txtSenha = new JPasswordField("123456");
+        txtEmail = new JTextField("");
+        txtSenha = new JPasswordField("");
 
         painelCampos.add(new JLabel("E-mail:"));
         painelCampos.add(txtEmail);
@@ -58,10 +60,23 @@ public class TelaLogin extends JFrame {
 
             Usuario usuarioLogado = usuarioController.autenticarUsuario(email, senha);
 
+            // Inicia a sessão do usuário logado
+            SessaoUsuario.iniciar(usuarioLogado);
+
+            // Registra o log de login
+            LogAcaoBO logAcaoBO = new LogAcaoBO();
+            logAcaoBO.registrar(
+                    "LOGIN",
+                    "USUARIO",
+                    usuarioLogado.getId(),
+                    "Usuário entrou no sistema: " + usuarioLogado.getLogin()
+            );
+
             TelaPrincipal telaPrincipal = new TelaPrincipal(usuarioLogado);
             telaPrincipal.setVisible(true);
 
             dispose();
+
         } catch (RuntimeException e) {
             JOptionPane.showMessageDialog(
                     this,

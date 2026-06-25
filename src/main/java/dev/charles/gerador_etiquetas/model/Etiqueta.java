@@ -8,9 +8,11 @@ public class Etiqueta {
 
     private Long id;
     private Prateleira prateleira;
+    private Grupo grupo;
+    private SubGrupo subGrupo;
     private String descricao;
     private String codigoVenda;
-    private List<String> codigosOriginais;
+    private List<EtiquetaCodigoOriginal> codigosOriginais;
     private LocalDateTime dataCriacao;
     private double larguraCm;
     private double alturaCm;
@@ -28,6 +30,12 @@ public class Etiqueta {
 
     public void setId(Long id) {
         this.id = id;
+
+        if (this.codigosOriginais != null) {
+            for (EtiquetaCodigoOriginal codigo : this.codigosOriginais) {
+                codigo.setEtiquetaId(id);
+            }
+        }
     }
 
     public Prateleira getPrateleira() {
@@ -36,6 +44,22 @@ public class Etiqueta {
 
     public void setPrateleira(Prateleira prateleira) {
         this.prateleira = prateleira;
+    }
+
+    public Grupo getGrupo() {
+        return grupo;
+    }
+
+    public void setGrupo(Grupo grupo) {
+        this.grupo = grupo;
+    }
+
+    public SubGrupo getSubGrupo() {
+        return subGrupo;
+    }
+
+    public void setSubGrupo(SubGrupo subGrupo) {
+        this.subGrupo = subGrupo;
     }
 
     public String getDescricao() {
@@ -54,12 +78,18 @@ public class Etiqueta {
         this.codigoVenda = codigoVenda;
     }
 
-    public List<String> getCodigosOriginais() {
+    public List<EtiquetaCodigoOriginal> getCodigosOriginais() {
         return codigosOriginais;
     }
 
-    public void setCodigosOriginais(List<String> codigosOriginais) {
-        this.codigosOriginais = codigosOriginais;
+    public void setCodigosOriginais(List<EtiquetaCodigoOriginal> codigosOriginais) {
+        this.codigosOriginais = codigosOriginais != null ? codigosOriginais : new ArrayList<>();
+
+        if (this.id != null) {
+            for (EtiquetaCodigoOriginal codigo : this.codigosOriginais) {
+                codigo.setEtiquetaId(this.id);
+            }
+        }
     }
 
     public LocalDateTime getDataCriacao() {
@@ -87,7 +117,16 @@ public class Etiqueta {
     }
 
     public void adicionarCodigoOriginal(String codigoOriginal) {
-        this.codigosOriginais.add(codigoOriginal);
+        adicionarCodigoOriginal(codigoOriginal, null);
+    }
+
+    public void adicionarCodigoOriginal(String codigoOriginal, Fabricante fabricante) {
+        EtiquetaCodigoOriginal codigo = new EtiquetaCodigoOriginal();
+        codigo.setCodigoOriginal(codigoOriginal);
+        codigo.setFabricante(fabricante);
+        codigo.setEtiquetaId(this.id);
+
+        this.codigosOriginais.add(codigo);
     }
 
     @Override

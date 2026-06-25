@@ -7,7 +7,7 @@ import java.util.List;
 
 public class PrateleiraController {
 
-    private PrateleiraBO prateleiraBO;
+    private final PrateleiraBO prateleiraBO;
 
     public PrateleiraController() {
         this.prateleiraBO = new PrateleiraBO();
@@ -17,7 +17,19 @@ public class PrateleiraController {
         return prateleiraBO.cadastrarPrateleira(localPrateleira, descricaoGrupo);
     }
 
+    public void atualizarPrateleira(Prateleira prateleira) {
+        prateleiraBO.atualizarPrateleira(prateleira);
+    }
+
+    public void excluirPrateleira(Long id) {
+        prateleiraBO.excluirPrateleira(id);
+    }
+
     public List<Prateleira> listarPrateleiras() {
         return prateleiraBO.listarPrateleiras();
+    }
+
+    public Prateleira buscarPorId(Long id) {
+        return prateleiraBO.buscarPorId(id);
     }
 }
