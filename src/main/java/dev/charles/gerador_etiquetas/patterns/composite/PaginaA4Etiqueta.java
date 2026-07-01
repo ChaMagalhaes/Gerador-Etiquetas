@@ -5,7 +5,7 @@ import java.util.List;
 
 public class PaginaA4Etiqueta implements ComponenteHtml {
 
-    private List<ComponenteHtml> componentes;
+    private final List<ComponenteHtml> componentes;
 
     public PaginaA4Etiqueta() {
         this.componentes = new ArrayList<>();
@@ -33,121 +33,136 @@ public class PaginaA4Etiqueta implements ComponenteHtml {
                     <style>
                         @page {
                             size: A4;
-                            margin: 10mm;
+                            margin: 0;
+                        }
+
+                        * {
+                            box-sizing: border-box;
                         }
 
                         body {
-                            font-family: Arial, sans-serif;
                             margin: 0;
                             padding: 0;
+                            font-family: Arial, Helvetica, sans-serif;
+                            color: #000;
                             background: #eaeaea;
                         }
 
                         .pagina-a4 {
                             width: 210mm;
                             min-height: 297mm;
-                            margin: auto;
+                            margin: 0 auto;
                             padding: 10mm;
-                            background: white;
-                            box-sizing: border-box;
+                            background: #fff;
 
                             display: flex;
                             flex-wrap: wrap;
                             align-content: flex-start;
-                            gap: 2mm;
+                            align-items: flex-start;
+                            gap: 3mm;
                         }
 
                         .etiqueta-card {
-                            border: 1px solid #000;
-                            box-sizing: border-box;
-                            padding: 5mm 6mm;
+                            flex: 0 0 auto;
+                            border: 0.35mm solid #000;
+                            padding: 4mm;
+                            background: #fff;
 
                             display: flex;
                             flex-direction: column;
                             justify-content: space-between;
+                            gap: 2mm;
 
-                            page-break-inside: avoid;
                             overflow: hidden;
-                            background: white;
+                            break-inside: avoid;
+                            page-break-inside: avoid;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+
+                        .etiqueta-card * {
+                            min-width: 0;
                         }
 
                         .descricao {
                             font-size: var(--fonte-descricao);
-                            font-weight: normal;
-                            text-transform: uppercase;
+                            font-weight: 500;
                             line-height: 1.15;
-                            overflow: hidden;
+                            text-transform: uppercase;
+                            overflow-wrap: anywhere;
+                            word-break: normal;
                         }
 
-                        .conteudo-etiqueta {
-                            display: grid;
-                            grid-template-columns: minmax(0, 1fr) max-content;
-                            grid-template-rows: auto auto;
-                            column-gap: 5mm;
-                            row-gap: 2mm;
-                            align-items: end;
+                        .corpo-etiqueta {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 1.8mm;
+                        }
+
+                        .corpo-etiqueta--simples {
+                            gap: 2.4mm;
                         }
 
                         .prateleira {
-                            grid-column: 1;
-                            grid-row: 1;
                             font-size: var(--fonte-prateleira);
                             font-weight: 900;
                             line-height: 1.05;
-                            letter-spacing: 0.2px;
-                            white-space: nowrap;
-                            overflow: visible;
+                            overflow-wrap: anywhere;
+                            word-break: normal;
+                        }
+
+                        .rodape-etiqueta {
+                            display: flex;
+                            align-items: flex-end;
+                            justify-content: space-between;
+                            gap: 2.5mm;
                         }
 
                         .codigo-venda {
-                            grid-column: 1;
-                            grid-row: 2;
+                            flex: 1 1 auto;
                             font-size: var(--fonte-codigo-venda);
-                            font-weight: normal;
-                            line-height: 1.1;
-                            white-space: nowrap;
-                            overflow: hidden;
-                            text-overflow: ellipsis;
+                            font-weight: 600;
+                            line-height: 1.15;
+                            white-space: normal;
+                            overflow-wrap: anywhere;
+                            word-break: normal;
                         }
 
                         .codigos-originais {
-                            grid-column: 2;
-                            grid-row: 1 / span 2;
-                            align-self: end;
-                            justify-self: end;
+                            flex: 0 1 48%;
                             display: flex;
                             flex-direction: column;
-                            align-items: flex-start;
-                            max-width: 45mm;
-                            overflow: hidden;
+                            align-items: flex-end;
+                            gap: 0.6mm;
+                            text-align: right;
                         }
 
                         .codigo-original {
+                            max-width: 100%;
                             font-size: var(--fonte-codigo-original);
-                            font-weight: normal;
+                            font-weight: 500;
                             line-height: 1.15;
-                            white-space: nowrap;
+                            white-space: normal;
+                            overflow-wrap: anywhere;
+                            word-break: normal;
                         }
 
                         @media print {
                             body {
-                                background: white;
+                                background: #fff;
                             }
 
                             .pagina-a4 {
+                                width: 210mm;
+                                min-height: 297mm;
                                 margin: 0;
                                 padding: 10mm;
-                            }
-
-                            .etiqueta-card {
-                                page-break-inside: avoid;
-                                break-inside: avoid;
                             }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="pagina-a4">
+                    <main class="pagina-a4">
                 """);
 
         for (ComponenteHtml componente : componentes) {
@@ -155,7 +170,7 @@ public class PaginaA4Etiqueta implements ComponenteHtml {
         }
 
         html.append("""
-                    </div>
+                    </main>
                 </body>
                 </html>
                 """);

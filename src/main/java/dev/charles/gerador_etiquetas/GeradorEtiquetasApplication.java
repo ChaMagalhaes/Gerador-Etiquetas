@@ -1,14 +1,12 @@
 package dev.charles.gerador_etiquetas;
-import dev.charles.gerador_etiquetas.view.TelaLogin;
 
-import javax.swing.*;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+@SpringBootApplication
 public class GeradorEtiquetasApplication {
 
 	public static void main(String[] args) {
-		SwingUtilities.invokeLater(() -> {
-			TelaLogin telaLogin = new TelaLogin();
-			telaLogin.setVisible(true);
-		});
+		SpringApplication.run(GeradorEtiquetasApplication.class, args);
 	}
 }
