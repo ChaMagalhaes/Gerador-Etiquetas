@@ -9,5 +9,4 @@ public class GeradorEtiquetasApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(GeradorEtiquetasApplication.class, args);
 	}
-
 }
